@@ -107,11 +107,22 @@ page = st.sidebar.selectbox("Select Tool Component",
                             ["DOE Manager", "SEM Analyzer", "Six Sigma Stats Module", "Trend Dashboard", "Data Export"])
 
 # ------------------ DOE Manager ------------------
-if page == "DOE Manager":
+elif page == "DOE Manager":
     st.header("DOE Manager")
-    st.markdown("""
-    Define lithography experiments (Dose, PEC, Development time), track results and get AI-based suggestions for new DOEs.
-    """)
+    st.markdown("Define or upload lithography experiments (Dose, PEC, Development, Cpk)")
+
+    uploaded_doe = st.file_uploader("📤 Upload DOE CSV or Excel", type=["csv", "xlsx"])
+    if uploaded_doe:
+        try:
+            if uploaded_doe.name.endswith(".csv"):
+                df = pd.read_csv(uploaded_doe)
+            else:
+                df = pd.read_excel(uploaded_doe)
+            st.session_state.doe_history = df
+            st.success("DOE data uploaded successfully.")
+        except Exception as e:
+            st.error(f"Failed to load data: {e}")
+
 
     with st.form("add_doe_form"):
         dose = st.number_input("Dose (mJ/cm²)", min_value=0.0, max_value=200.0, value=100.0)
