@@ -196,7 +196,7 @@ elif page == "Six Sigma Stats Module":
 
     # Cp/Cpk Calculation
     if 'uploaded_data' in st.session_state:
-    data_input = ', '.join([f"{v:.2f}" for v in st.session_state.uploaded_data['CD']])
+        data_input = ', '.join([f"{v:.2f}" for v in st.session_state.uploaded_data['CD']])
 
     st.subheader("Cp and Cpk Calculation")
     data_input = st.text_area("Enter measurement data (comma separated)", value="10.2, 9.8, 10.5, 10.1, 10.3")
