@@ -125,7 +125,7 @@ if page == "DOE Manager":
 
 
     with st.form("add_doe_form"):
-        dose = st.number_input("Dose (mJ/cm²)", min_value=0.0, max_value=200.0, value=100.0)
+        dose = st.number_input("Dose (uJ/cm²)", min_value=0.0, max_value=200.0, value=100.0)
         pec = st.number_input("Post-Exposure Bake (°C)", min_value=0.0, max_value=300.0, value=90.0)
         dev = st.number_input("Development Time (s)", min_value=0.0, max_value=120.0, value=30.0)
         cpk = st.number_input("Measured Cpk", min_value=0.0, max_value=2.0, value=1.0, format="%.3f")
