@@ -178,8 +178,26 @@ elif page == "Six Sigma Stats Module":
     st.markdown("""
     Calculate Cp, Cpk, perform ANOVA, and regression modeling of CD vs parameters.
     """)
+    
+    st.markdown("📥 Upload a DOE dataset to auto-populate:")
+    uploaded_stats_file = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
+    if uploaded_stats_file:
+        try:
+            if uploaded_stats_file.name.endswith(".csv"):
+                df = pd.read_csv(uploaded_stats_file)
+            else:
+                df = pd.read_excel(uploaded_stats_file)
+            st.session_state.uploaded_data = df
+            st.success("Data uploaded.")
+            st.write(df.head())
+        except Exception as e:
+            st.error(f"Upload error: {e}")
+
 
     # Cp/Cpk Calculation
+    if 'uploaded_data' in st.session_state:
+    data_input = ', '.join([f"{v:.2f}" for v in st.session_state.uploaded_data['CD']])
+
     st.subheader("Cp and Cpk Calculation")
     data_input = st.text_area("Enter measurement data (comma separated)", value="10.2, 9.8, 10.5, 10.1, 10.3")
     usl = st.number_input("Upper Spec Limit (USL)", value=11.0)
