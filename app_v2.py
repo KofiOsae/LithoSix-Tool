@@ -147,7 +147,7 @@ if page == "DOE Manager":
         suggested_dose = np.clip(best_cpk_row['Dose'] + np.random.uniform(-5, 5), 0, 200)
         suggested_pec = np.clip(best_cpk_row['PEC'] + np.random.uniform(-5, 5), 0, 300)
         suggested_dev = np.clip(best_cpk_row['Development'] + np.random.uniform(-5, 5), 0, 120)
-        st.write(f"- Dose: {suggested_dose:.1f} mJ/cm²")
+        st.write(f"- Dose: {suggested_dose:.1f} uJ/cm²")
         st.write(f"- PEC: {suggested_pec:.1f} °C")
         st.write(f"- Development: {suggested_dev:.1f} s")
 
