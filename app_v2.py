@@ -107,7 +107,7 @@ page = st.sidebar.selectbox("Select Tool Component",
                             ["DOE Manager", "SEM Analyzer", "Six Sigma Stats Module", "Trend Dashboard", "Data Export"])
 
 # ------------------ DOE Manager ------------------
-elif page == "DOE Manager":
+if page == "DOE Manager":
     st.header("DOE Manager")
     st.markdown("Define or upload lithography experiments (Dose, PEC, Development, Cpk)")
 
