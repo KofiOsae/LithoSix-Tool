@@ -1,10 +1,11 @@
 streamlit
-opencv-python-headless==4.8.1.78
-scikit-image
 pandas
 numpy
-scipy
-scikit-learn
+opencv-python-headless
 plotly
-openpyxl
+scikit-learn
+scipy
 Pillow
+openpyxl
+matplotlib
+scikit-image
