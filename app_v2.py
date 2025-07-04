@@ -158,15 +158,8 @@ elif page == "SEM Analyzer":
     Upload SEM images, apply edge detection, and get AI-based quality score.
     """)
 
-    uploaded_file = st.file_uploader("Upload SEM Image (PNG/JPG only)", type=["png", "jpg", "jpeg"])
-    if uploaded_file:
-        try:
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded SEM Image", use_column_width=True)
-        except Exception as e:
-            st.error(f"Image upload failed: {e}")
-    else:
-        st.warning("TIP: Convert your `.tif` images to `.png` or `.jpg` before uploading.")
+    uploaded_file = st.file_uploader("Upload SEM Image", type=["png", "jpg", "jpeg", "tif"])
+
 
     if uploaded_file:
         file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
