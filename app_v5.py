@@ -135,62 +135,150 @@ st.title("🧪 LithoSix: Complete Lithography Assistant")
 
 page = st.sidebar.radio("Select Module", ["SEM Analyzer", "DOE Manager", "Six Sigma Stats", "Trend Dashboard"])
 
-# === SEM ANALYZER ===
+# === SEM ANALYZER ADVANCE===
 if page == "SEM Analyzer":
-    st.header("🖼 SEM Feature Analyzer")
+    st.header("🖼 SEM Analyzer — Advanced Grating + Shape Metrics")
 
-    st.sidebar.markdown("### SEM Settings")
-    scale = st.sidebar.number_input("nm per pixel", value=2.5)
-    height_nm = st.sidebar.number_input("Assumed Grating Height (nm)", min_value=10.0, max_value=1000.0, value=100.0)
-    blur = st.sidebar.slider("Blur", 1, 11, 5, step=2)
-    threshold = st.sidebar.slider("Threshold", 30, 200, 80)
-    contrast = st.sidebar.slider("Contrast", 1.0, 3.0, 1.2)
+    from skimage.filters import sobel
+    from skimage.measure import regionprops, label
+    from streamlit_drawable_canvas import st_canvas
 
-    mode = st.sidebar.selectbox("Feature Type", ["Grating", "Dot", "Ellipse"])
-
-    uploaded = st.file_uploader("Upload SEM Image", type=['png', 'tif', 'tiff', 'jpg', 'jpeg'])
+    uploaded = st.file_uploader("Upload SEM Image", type=['png','jpg','jpeg'])
     if uploaded:
         img = Image.open(uploaded).convert('RGB')
-        img = np.array(img)
+        img_np = np.array(img)
 
-        st.image(img, caption="Original Image", use_column_width=True)
-
-        processed = preprocess_image(img, blur, threshold, contrast)
-        st.image(processed, caption="Processed Binary Image", use_column_width=True, clamp=True)
-
-        overlay = overlay_contours(img, processed)
-        st.image(overlay, caption="Overlay: Edge Contours", use_column_width=True)
-
-        # Compute features by mode
-        if mode == "Grating":
-            df = extract_grating_features_with_height(processed, scale, height_nm)
+        # === Scale Calibration ===
+        st.sidebar.markdown("### 📐 Pixel-to-nm Scale")
+        scale_mode = st.sidebar.radio("Set Scale", ["Manual", "Click to Calibrate"])
+        if scale_mode == "Manual":
+            scale = st.sidebar.number_input("nm per pixel", value=2.5, step=0.1)
         else:
-            df = extract_dot_ellipse_features(processed, scale)
+            st.markdown("Click **exactly 2 points** on the scale bar to calibrate")
+            scale_canvas = st_canvas(
+                background_image=img,
+                update_streamlit=True,
+                drawing_mode="point",
+                stroke_width=2,
+                height=img_np.shape[0],
+                width=img_np.shape[1],
+                key="scale_canvas"
+            )
+            scale = None
+            if scale_canvas.json_data and len(scale_canvas.json_data["objects"]) == 2:
+                x1, y1 = scale_canvas.json_data["objects"][0]["left"], scale_canvas.json_data["objects"][0]["top"]
+                x2, y2 = scale_canvas.json_data["objects"][1]["left"], scale_canvas.json_data["objects"][1]["top"]
+                pixel_dist = ((x2 - x1)**2 + (y2 - y1)**2) ** 0.5
+                length_nm = st.number_input("Known scale bar length (nm)", value=500.0)
+                scale = length_nm / pixel_dist
+                st.success(f"Scale = {scale:.3f} nm/pixel")
 
-        if not df.empty:
-            st.subheader("🔍 Feature Filtering")
-            filter_col = st.selectbox("Select Feature to Filter", df.columns)
-            min_val = st.number_input(f"Min {filter_col}", value=float(df[filter_col].min()))
-            max_val = st.number_input(f"Max {filter_col}", value=float(df[filter_col].max()))
-            df = df[(df[filter_col] >= min_val) & (df[filter_col] <= max_val)]
+        feature_type = st.sidebar.selectbox("Feature Type", ["Grating", "Dot", "Ellipse"])
+        blur = st.sidebar.slider("Blur", 1, 15, 5, step=2)
+        thresh = st.sidebar.slider("Threshold", 10, 255, 100)
+        contrast = st.sidebar.slider("Contrast", 1.0, 3.0, 1.2)
 
-            st.subheader("📋 Feature Metrics")
-            st.dataframe(df)
+        img_gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+        blurred = cv2.GaussianBlur(img_gray, (blur, blur), 0)
+        _, binary = cv2.threshold(blurred, thresh, 255, cv2.THRESH_BINARY)
+        processed = cv2.convertScaleAbs(binary, alpha=contrast)
 
-            st.subheader("📊 Summary Statistics")
-            st.dataframe(df.describe().T.round(3))
+        edges = cv2.Canny(processed, 50, 150)
+        overlay = img_np.copy()
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        cv2.drawContours(overlay, contours, -1, (0, 255, 0), 1)
 
-            st.download_button("📥 Download as CSV", df.to_csv(index=False).encode(), "sem_features.csv", "text/csv")
-
-            score = get_ai_score(df)
-            st.markdown(f"### 🤖 AI Quality Score: `{score:.3f}`")
-
-            with st.expander("📘 Why this score?"):
-                st.write("The AI score considers metrics like CD, LER, Circularity, etc. using a heuristic weighting.")
+        view = st.radio("📷 View Image:", ["Overlay", "Processed", "Original"])
+        if view == "Overlay":
+            st.image(overlay, use_column_width=True)
+        elif view == "Processed":
+            st.image(processed, use_column_width=True)
         else:
-            st.warning("No valid features detected.")
-    else:
-        st.info("Please upload an SEM image to begin.")
+            st.image(img_np, use_column_width=True)
+
+        st.markdown("---")
+
+        def extract_grating_geometry(image, contours, scale):
+            results = []
+            for cnt in contours:
+                if cv2.contourArea(cnt) < 100:
+                    continue
+                x, y, w, h = cv2.boundingRect(cnt)
+                roi = image[y:y+h, x:x+w]
+                profile = np.mean(roi, axis=1)
+                grad = np.gradient(profile)
+                top_idx = np.argmax(grad)
+                bot_idx = np.argmin(grad)
+
+                if bot_idx > top_idx:
+                    height_px = bot_idx - top_idx
+                    height_nm = height_px * scale
+                else:
+                    height_nm = np.nan
+
+                horiz_proj = np.mean(roi, axis=0)
+                edge_thresh = np.max(horiz_proj) * 0.5
+                left = np.argmax(horiz_proj > edge_thresh)
+                right = len(horiz_proj) - np.argmax(np.flip(horiz_proj) > edge_thresh)
+                top_width_px = right - left
+                bottom_width_px = w
+                top_width_nm = top_width_px * scale
+                bottom_width_nm = bottom_width_px * scale
+
+                if height_nm and abs(top_width_nm - bottom_width_nm) > 1:
+                    angle = math.degrees(math.atan(abs(top_width_nm - bottom_width_nm) / (2 * height_nm)))
+                else:
+                    angle = 0.0
+
+                results.append({
+                    "CD (nm)": (top_width_nm + bottom_width_nm) / 2,
+                    "Top Width (nm)": top_width_nm,
+                    "Bottom Width (nm)": bottom_width_nm,
+                    "Height (nm)": height_nm,
+                    "Sidewall Angle (°)": angle
+                })
+            df = pd.DataFrame(results)
+            df["LER (nm)"] = df["CD (nm)"].diff().abs()
+            df["LWR (nm)"] = df["CD (nm)"].rolling(3).std()
+            return df.dropna()
+
+        def extract_dot_features(binary, scale):
+            props = regionprops(label(binary))
+            rows = []
+            for p in props:
+                if p.area < 50:
+                    continue
+                cd = (p.major_axis_length + p.minor_axis_length) / 2 * scale
+                circ = (4 * math.pi * p.area) / (p.perimeter**2) if p.perimeter > 0 else 0
+                ecc = p.eccentricity
+                rows.append({"CD (nm)": cd, "Circularity": circ, "Eccentricity": ecc})
+            return pd.DataFrame(rows)
+
+        if scale:
+            if feature_type == "Grating":
+                df = extract_grating_geometry(img_gray, contours, scale)
+            else:
+                df = extract_dot_features(processed, scale)
+
+            if not df.empty:
+                st.subheader("🔬 Feature Filtering")
+                for col in df.select_dtypes(include=np.number).columns:
+                    min_val = st.number_input(f"Min {col}", value=float(df[col].min()))
+                    max_val = st.number_input(f"Max {col}", value=float(df[col].max()))
+                    df = df[(df[col] >= min_val) & (df[col] <= max_val)]
+
+                st.subheader("📋 Feature Data")
+                st.dataframe(df)
+                st.subheader("📊 Summary Stats")
+                st.dataframe(df.describe().T.round(3))
+
+                st.download_button("📥 Download CSV", df.to_csv(index=False).encode(), "sem_features.csv", "text/csv")
+                st.success(f"{len(df)} features extracted.")
+            else:
+                st.warning("No valid features found.")
+        else:
+            st.info("Awaiting pixel scale calibration...")
+
 
 
 # === DOE MANAGER ===
