@@ -12,6 +12,10 @@ from sklearn.ensemble import IsolationForest, RandomForestRegressor
 from sklearn.metrics import r2_score
 from skimage import measure, filters, morphology
 import plotly.express as px
+import math
+from skimage.measure import regionprops, label
+from skimage.morphology import closing, square
+from skimage.filters import threshold_otsu
 
 st.set_page_config(page_title="LithoSix", layout="wide")
 
@@ -153,6 +157,9 @@ elif page == "SEM Analyzer":
 
     if scale_mode == "Manual (nm/pixel)":
         st.session_state.scale_nm_per_pixel = st.number_input("Scale (nm/pixel)", min_value=0.1, max_value=100.0, value=10.0)
+    # Store pixel-to-nm scale
+    if 'scale_nm_per_pixel' not in st.session_state:
+        st.session_state.scale_nm_per_pixel = 1.0  # Default, update via input or click
 
     if uploaded_file:
         file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
