@@ -10,6 +10,9 @@ from sklearn.ensemble import IsolationForest, RandomForestRegressor
 from scipy import stats
 from io import BytesIO
 import math
+from skimage.filters import sobel
+from skimage.measure import regionprops, label
+from streamlit_drawable_canvas import st_canvas
 
 # --- Helper Functions Shared ---
 def to_excel(df):
@@ -27,24 +30,61 @@ def preprocess_image(image, blur_ksize=5, threshold_value=80, contrast_factor=1.
     _, binary = cv2.threshold(blurred, threshold_value, 255, cv2.THRESH_BINARY)
     adjusted = cv2.convertScaleAbs(binary, alpha=contrast_factor, beta=0)
     return adjusted
+def extract_grating_geometry(image, contours, scale):
+            results = []
+            for cnt in contours:
+                if cv2.contourArea(cnt) < 100:
+                    continue
+                x, y, w, h = cv2.boundingRect(cnt)
+                roi = image[y:y+h, x:x+w]
+                profile = np.mean(roi, axis=1)
+                grad = np.gradient(profile)
+                top_idx = np.argmax(grad)
+                bot_idx = np.argmin(grad)
 
-def extract_grating_features(edges, scale):
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    features = []
-    for cnt in contours:
-        if cv2.contourArea(cnt) < 50: continue
-        x, y, w, h = cv2.boundingRect(cnt)
-        width = w * scale
-        if len(cnt) >= 2:
-            dx = cnt[-1][0][0] - cnt[0][0][0]
-            dy = cnt[-1][0][1] - cnt[0][0][1]
-            slope_angle = math.degrees(math.atan2(dy, dx))
-        else: slope_angle = 0
-        features.append({'CD (nm)': width, 'Slope (°)': slope_angle})
-    df = pd.DataFrame(features)
-    df['LER (nm)'] = df['CD (nm)'].diff().abs()
-    df['LWR (nm)'] = df['CD (nm)'].rolling(3).std()
-    return df
+                if bot_idx > top_idx:
+                    height_px = bot_idx - top_idx
+                    height_nm = height_px * scale
+                else:
+                    height_nm = np.nan
+
+                horiz_proj = np.mean(roi, axis=0)
+                edge_thresh = np.max(horiz_proj) * 0.5
+                left = np.argmax(horiz_proj > edge_thresh)
+                right = len(horiz_proj) - np.argmax(np.flip(horiz_proj) > edge_thresh)
+                top_width_px = right - left
+                bottom_width_px = w
+                top_width_nm = top_width_px * scale
+                bottom_width_nm = bottom_width_px * scale
+
+                if height_nm and abs(top_width_nm - bottom_width_nm) > 1:
+                    angle = math.degrees(math.atan(abs(top_width_nm - bottom_width_nm) / (2 * height_nm)))
+                else:
+                    angle = 0.0
+
+                results.append({
+                    "CD (nm)": (top_width_nm + bottom_width_nm) / 2,
+                    "Top Width (nm)": top_width_nm,
+                    "Bottom Width (nm)": bottom_width_nm,
+                    "Height (nm)": height_nm,
+                    "Sidewall Angle (°)": angle
+                })
+            df = pd.DataFrame(results)
+            df["LER (nm)"] = df["CD (nm)"].diff().abs()
+            df["LWR (nm)"] = df["CD (nm)"].rolling(3).std()
+            return df.dropna()
+
+        def extract_dot_features(binary, scale):
+            props = regionprops(label(binary))
+            rows = []
+            for p in props:
+                if p.area < 50:
+                    continue
+                cd = (p.major_axis_length + p.minor_axis_length) / 2 * scale
+                circ = (4 * math.pi * p.area) / (p.perimeter**2) if p.perimeter > 0 else 0
+                ecc = p.eccentricity
+                rows.append({"CD (nm)": cd, "Circularity": circ, "Eccentricity": ecc})
+            return pd.DataFrame(rows)
 
 def extract_dot_ellipse_features(edges, scale):
     labeled = measure.label(edges)
@@ -139,10 +179,6 @@ page = st.sidebar.radio("Select Module", ["SEM Analyzer", "DOE Manager", "Six Si
 if page == "SEM Analyzer":
     st.header("🖼 SEM Analyzer — Advanced Grating + Shape Metrics")
 
-    from skimage.filters import sobel
-    from skimage.measure import regionprops, label
-    from streamlit_drawable_canvas import st_canvas
-
     uploaded = st.file_uploader("Upload SEM Image", type=['png','jpg','jpeg'])
     if uploaded:
         img = Image.open(uploaded).convert('RGB')
@@ -197,62 +233,6 @@ if page == "SEM Analyzer":
             st.image(img_np, use_column_width=True)
 
         st.markdown("---")
-
-        def extract_grating_geometry(image, contours, scale):
-            results = []
-            for cnt in contours:
-                if cv2.contourArea(cnt) < 100:
-                    continue
-                x, y, w, h = cv2.boundingRect(cnt)
-                roi = image[y:y+h, x:x+w]
-                profile = np.mean(roi, axis=1)
-                grad = np.gradient(profile)
-                top_idx = np.argmax(grad)
-                bot_idx = np.argmin(grad)
-
-                if bot_idx > top_idx:
-                    height_px = bot_idx - top_idx
-                    height_nm = height_px * scale
-                else:
-                    height_nm = np.nan
-
-                horiz_proj = np.mean(roi, axis=0)
-                edge_thresh = np.max(horiz_proj) * 0.5
-                left = np.argmax(horiz_proj > edge_thresh)
-                right = len(horiz_proj) - np.argmax(np.flip(horiz_proj) > edge_thresh)
-                top_width_px = right - left
-                bottom_width_px = w
-                top_width_nm = top_width_px * scale
-                bottom_width_nm = bottom_width_px * scale
-
-                if height_nm and abs(top_width_nm - bottom_width_nm) > 1:
-                    angle = math.degrees(math.atan(abs(top_width_nm - bottom_width_nm) / (2 * height_nm)))
-                else:
-                    angle = 0.0
-
-                results.append({
-                    "CD (nm)": (top_width_nm + bottom_width_nm) / 2,
-                    "Top Width (nm)": top_width_nm,
-                    "Bottom Width (nm)": bottom_width_nm,
-                    "Height (nm)": height_nm,
-                    "Sidewall Angle (°)": angle
-                })
-            df = pd.DataFrame(results)
-            df["LER (nm)"] = df["CD (nm)"].diff().abs()
-            df["LWR (nm)"] = df["CD (nm)"].rolling(3).std()
-            return df.dropna()
-
-        def extract_dot_features(binary, scale):
-            props = regionprops(label(binary))
-            rows = []
-            for p in props:
-                if p.area < 50:
-                    continue
-                cd = (p.major_axis_length + p.minor_axis_length) / 2 * scale
-                circ = (4 * math.pi * p.area) / (p.perimeter**2) if p.perimeter > 0 else 0
-                ecc = p.eccentricity
-                rows.append({"CD (nm)": cd, "Circularity": circ, "Eccentricity": ecc})
-            return pd.DataFrame(rows)
 
         if scale:
             if feature_type == "Grating":
