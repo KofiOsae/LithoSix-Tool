@@ -151,9 +151,9 @@ if page == "SEM Analyzer":
         img = np.array(img)
         st.image(img, caption="Original Image", use_container_width=True)
         processed = preprocess_image(img, blur, threshold, contrast)
-        st.image(processed, caption="Processed", use_column_widthh=True, clamp=True)
+        st.image(processed, caption="Processed", use_column_width=True, clamp=True)
         overlay = overlay_contours(img, processed)
-        st.image(overlay, caption="Edge Overlay", use_column_widthh=True)
+        st.image(overlay, caption="Edge Overlay", use_column_width=True)
 
         if mode == "Grating":
             df = extract_grating_features(processed, scale)
