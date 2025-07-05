@@ -39,14 +39,13 @@ def extract_grating_edges(gray, min_area=100):
     cleaned = morphology.remove_small_objects(measure.label(thresh > 0), min_size=min_area)
     return cleaned
 
-def compute_ler(contour, axis="y", pixel_scale=1.0):
-    if contour.shape[0] < 2:
-        return 0
-    deviations = []
-    for i in range(1, len(contour)):
-        delta = abs(contour[i][0][0] - contour[0][0][0])
-        deviations.append(delta * pixel_scale)
+def compute_ler(coords, axis="y", pixel_scale=1.0):
+    # Assume coords is a Nx2 array: [row, col] or [y, x]
+    edge_positions = coords[:, 1]  # X positions (col)
+    mean_pos = np.mean(edge_positions)
+    deviations = (edge_positions - mean_pos) * pixel_scale
     return np.std(deviations)
+
 
 def plot_spc_chart(data):
     mean = np.mean(data)
@@ -122,7 +121,7 @@ elif page == "🖼 SEM Analyzer":
         image = Image.open(sem_file).convert("RGB")
         img_np = np.array(image)
         gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-        st.image(img_np, caption="Uploaded SEM", use_column_width=True)
+        st.image(img_np, caption="Uploaded SEM", use_container_width=True)
 
         feature_type = st.selectbox("Select Feature Type", ["Gratings", "Dots", "Ellipses"])
         st.number_input("Pixel scale (nm/pixel)", min_value=0.1, step=0.1, key="pixel_scale")
