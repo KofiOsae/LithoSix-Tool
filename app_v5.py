@@ -175,4 +175,51 @@ if page == "SEM Analyzer":
 elif page == "DOE Manager":
     st.header("📋 DOE Manager")
     if "doe_history" not in st.session_state:
-        st.session_state.doe_history = pd.DataFrame(columns=['Dose', 'PEC', 'Development
+        st.session_state.doe_history = pd.DataFrame(columns=['Dose', 'PEC', 'Development', 'Cpk'])
+
+    with st.form("add_doe_form"):
+        dose = st.number_input("Exposure Dose (mJ/cm²)", 50.0, 200.0, 100.0)
+        pec = st.number_input("Post Exposure Bake Temp (°C)", 50.0, 200.0, 90.0)
+        dev = st.number_input("Development Time (sec)", 10.0, 120.0, 30.0)
+        cpk = st.number_input("Cpk Value", 0.0, 2.0, 1.0)
+        submitted = st.form_submit_button("Add DOE Entry")
+
+    if submitted:
+        new_row = {'Dose': dose, 'PEC': pec, 'Development': dev, 'Cpk': cpk}
+        st.session_state.doe_history = pd.concat([st.session_state.doe_history, pd.DataFrame([new_row])], ignore_index=True)
+        st.success("✅ DOE entry added!")
+
+    if not st.session_state.doe_history.empty:
+        st.subheader("🧾 DOE History")
+        st.dataframe(st.session_state.doe_history)
+
+        st.subheader("🤖 AI-Suggested Next DOE")
+
+        top_row = st.session_state.doe_history.loc[st.session_state.doe_history['Cpk'].idxmax()]
+        st.markdown(f"- Highest Cpk so far: **{top_row['Cpk']:.3f}**")
+
+        # Suggest next DOE by perturbing top performer
+        next_dose = np.clip(top_row['Dose'] + np.random.uniform(-3, 3), 50, 200)
+        next_pec = np.clip(top_row['PEC'] + np.random.uniform(-3, 3), 50, 200)
+        next_dev = np.clip(top_row['Development'] + np.random.uniform(-5, 5), 10, 120)
+
+        suggestion = pd.DataFrame([{
+            'Dose': round(next_dose, 2),
+            'PEC': round(next_pec, 2),
+            'Development': round(next_dev, 2)
+        }])
+        st.dataframe(suggestion)
+
+        with st.expander("📘 Why was this suggested?"):
+            st.write("""
+            This suggestion is based on the best historical Cpk result, slightly perturbing the parameters using a narrow range
+            to explore better process corners. The idea is to balance exploration (try nearby parameters) and exploitation
+            (stay close to high-Cpk setups). You could optimize this using gradient-based methods or surrogate models in the future.
+            """)
+        
+        st.download_button(
+            "📤 Download DOE History (CSV)",
+            st.session_state.doe_history.to_csv(index=False).encode(),
+            "doe_history.csv",
+            "text/csv"
+        )
