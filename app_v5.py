@@ -74,7 +74,7 @@ def extract_grating_geometry(image, contours, scale):
             df["LWR (nm)"] = df["CD (nm)"].rolling(3).std()
             return df.dropna()
 
-        def extract_dot_features(binary, scale):
+def extract_dot_features(binary, scale):
             props = regionprops(label(binary))
             rows = []
             for p in props:
