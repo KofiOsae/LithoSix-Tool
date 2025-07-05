@@ -137,39 +137,61 @@ page = st.sidebar.radio("Select Module", ["SEM Analyzer", "DOE Manager", "Six Si
 
 # === SEM ANALYZER ===
 if page == "SEM Analyzer":
-    st.header("SEM Analyzer")
-    st.sidebar.markdown("### SEM Preprocessing")
+    st.header("🖼 SEM Feature Analyzer")
+
+    st.sidebar.markdown("### SEM Settings")
     scale = st.sidebar.number_input("nm per pixel", value=2.5)
-    blur = st.sidebar.slider("Blur", 1, 11, 5, 2)
+    height_nm = st.sidebar.number_input("Assumed Grating Height (nm)", min_value=10.0, max_value=1000.0, value=100.0)
+    blur = st.sidebar.slider("Blur", 1, 11, 5, step=2)
     threshold = st.sidebar.slider("Threshold", 30, 200, 80)
     contrast = st.sidebar.slider("Contrast", 1.0, 3.0, 1.2)
+
     mode = st.sidebar.selectbox("Feature Type", ["Grating", "Dot", "Ellipse"])
 
-    uploaded = st.file_uploader("Upload SEM image", type=['png','jpg','jpeg','tif','tiff'])
+    uploaded = st.file_uploader("Upload SEM Image", type=['png', 'tif', 'tiff', 'jpg', 'jpeg'])
     if uploaded:
         img = Image.open(uploaded).convert('RGB')
         img = np.array(img)
-        st.image(img, caption="Original Image", use_container_width=True)
-        processed = preprocess_image(img, blur, threshold, contrast)
-        st.image(processed, caption="Processed", use_column_width=True, clamp=True)
-        overlay = overlay_contours(img, processed)
-        st.image(overlay, caption="Edge Overlay", use_column_width=True)
 
+        st.image(img, caption="Original Image", use_column_width=True)
+
+        processed = preprocess_image(img, blur, threshold, contrast)
+        st.image(processed, caption="Processed Binary Image", use_column_width=True, clamp=True)
+
+        overlay = overlay_contours(img, processed)
+        st.image(overlay, caption="Overlay: Edge Contours", use_column_width=True)
+
+        # Compute features by mode
         if mode == "Grating":
-            df = extract_grating_features(processed, scale)
+            df = extract_grating_features_with_height(processed, scale, height_nm)
         else:
             df = extract_dot_ellipse_features(processed, scale)
 
         if not df.empty:
-            st.subheader("🔬 Feature-Level Metrics")
+            st.subheader("🔍 Feature Filtering")
+            filter_col = st.selectbox("Select Feature to Filter", df.columns)
+            min_val = st.number_input(f"Min {filter_col}", value=float(df[filter_col].min()))
+            max_val = st.number_input(f"Max {filter_col}", value=float(df[filter_col].max()))
+            df = df[(df[filter_col] >= min_val) & (df[filter_col] <= max_val)]
+
+            st.subheader("📋 Feature Metrics")
             st.dataframe(df)
-            st.subheader("📊 Summary")
+
+            st.subheader("📊 Summary Statistics")
             st.dataframe(df.describe().T.round(3))
-            st.download_button("📤 Download as CSV", df.to_csv(index=False).encode(), "sem_features.csv", "text/csv")
+
+            st.download_button("📥 Download as CSV", df.to_csv(index=False).encode(), "sem_features.csv", "text/csv")
+
             score = get_ai_score(df)
             st.markdown(f"### 🤖 AI Quality Score: `{score:.3f}`")
+
+            with st.expander("📘 Why this score?"):
+                st.write("The AI score considers metrics like CD, LER, Circularity, etc. using a heuristic weighting.")
         else:
             st.warning("No valid features detected.")
+    else:
+        st.info("Please upload an SEM image to begin.")
+
 
 # === DOE MANAGER ===
 elif page == "DOE Manager":
