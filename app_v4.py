@@ -151,7 +151,7 @@ elif page == "📋 DOE Manager":
 # New: SEM Analyzer Enhanced UI
 elif page == "SEM Analyzer":
     st.header("SEM Analyzer")
-    uploaded_file = st.file_uploader("Upload SEM Image", type=['png', 'jpg', 'jpeg'])
+    uploaded_file = st.file_uploader("Upload SEM Image", type=['png', 'jpg', 'jpeg', 'tif', 'tiff'])
     shape_type = st.selectbox("Feature Type", ["Grating", "Dot", "Ellipse"])
     scale_mode = st.radio("Set Scale", ["Manual (nm/pixel)", "Use Click-to-Scale (Coming Soon)"])
 
