@@ -61,6 +61,9 @@ def plot_spc_chart(data):
     st.pyplot(fig)
 
 def get_scale_from_clicks(img, clicks, scale_nm):
+    if 'scale_nm_per_pixel' not in st.session_state:
+        st.session_state.scale_nm_per_pixel = 1.0  # Default, update via input or click
+    
     if len(clicks) == 2:
         x1, x2 = clicks[0]['x'], clicks[1]['x']
         px_dist = abs(x2 - x1)
@@ -148,6 +151,74 @@ elif page == "🖼 SEM Analyzer":
             df = pd.DataFrame({"CD (nm)": cds, "LER (nm)": lers})
             st.dataframe(df)
             st.download_button("📥 Download Feature Table", df.to_csv(index=False), "sem_features.csv")
+
+def analyze_grating(edges, scale_nm_per_pixel):
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    widths = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        widths.append(w)
+    if len(widths) > 1:
+        widths_nm = np.array(widths) * scale_nm_per_pixel
+        cd = np.mean(widths_nm)
+        lwr = np.std(widths_nm)
+        ler = lwr  # For now, treat similarly
+        return cd, ler, lwr
+    return np.nan, np.nan, np.nan
+
+# New function: Dot/Ellipse shape metrics
+def analyze_shapes(binary_img, shape_type):
+    labeled = label(binary_img)
+    props = regionprops(labeled)
+    results = []
+    for region in props:
+        if region.area < 50: continue
+        circ = 4 * math.pi * region.area / (region.perimeter ** 2) if region.perimeter > 0 else 0
+        ecc = region.eccentricity
+        results.append({'Area': region.area, 'Circularity': circ, 'Eccentricity': ecc})
+    df = pd.DataFrame(results)
+    return df
+
+# New: SEM Analyzer Enhanced UI
+elif page == "SEM Analyzer":
+    st.header("SEM Analyzer")
+    uploaded_file = st.file_uploader("Upload SEM Image", type=['png', 'jpg', 'jpeg'])
+    shape_type = st.selectbox("Feature Type", ["Grating", "Dot", "Ellipse"])
+    scale_mode = st.radio("Set Scale", ["Manual (nm/pixel)", "Use Click-to-Scale (Coming Soon)"])
+
+    if scale_mode == "Manual (nm/pixel)":
+        st.session_state.scale_nm_per_pixel = st.number_input("Scale (nm/pixel)", min_value=0.1, max_value=100.0, value=10.0)
+
+    if uploaded_file:
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        st.image(img, caption="Original SEM Image", use_column_width=True)
+
+        # Convert and preprocess
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray, (5,5), 0)
+        thresh_val = threshold_otsu(blur)
+        binary = (blur > thresh_val).astype(np.uint8) * 255
+        edges = cv2.Canny(binary, 50, 150)
+
+        st.image(edges, caption="Edges", use_column_width=True)
+
+        # Analysis based on shape
+        if shape_type == "Grating":
+            cd, ler, lwr = analyze_grating(edges, st.session_state.scale_nm_per_pixel)
+            st.markdown(f"""
+            **CD (mean width):** {cd:.2f} nm  
+            **LER:** {ler:.2f} nm  
+            **LWR:** {lwr:.2f} nm  
+            """)
+        else:
+            results_df = analyze_shapes(binary, shape_type)
+            st.dataframe(results_df)
+            csv = results_df.to_csv(index=False).encode('utf-8')
+            st.download_button("Download Feature Stats CSV", csv, "feature_stats.csv", "text/csv")
+
+        score = dummy_cnn_quality_score(edges)
+        st.markdown(f"**AI Quality Score:** `{score:.3f}`")
 
 # ---------- SIX SIGMA ----------
 elif page == "📊 Six Sigma Stats":
