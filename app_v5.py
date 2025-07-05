@@ -204,7 +204,7 @@ if page == "SEM Analyzer":
                 width=canvas_img.width,
                 key="scale_canvas"
             )
-                    scale = None
+            scale = None
             if scale_canvas.json_data and len(scale_canvas.json_data["objects"]) == 2:
                 x1, y1 = scale_canvas.json_data["objects"][0]["left"], scale_canvas.json_data["objects"][0]["top"]
                 x2, y2 = scale_canvas.json_data["objects"][1]["left"], scale_canvas.json_data["objects"][1]["top"]
