@@ -182,32 +182,32 @@ if page == "SEM Analyzer":
     st.header("🖼 SEM Analyzer — Advanced Grating + Shape Metrics")
 
     uploaded = st.file_uploader("Upload SEM Image", type=['png', 'tif', 'tiff', 'jpg','jpeg'])
-    st.subheader("📐 Scale Calibration (Pixel to nm)")
-
-    # Show SEM image
-    st.image(img_np, caption="SEM image (for scale bar)", use_column_width=True)
-    
-    st.markdown("🧭 Measure two points on the scale bar (e.g., using an image viewer) and enter coordinates:")
-    
-    coords_input = st.text_input(
-        "Enter points as: `x1,y1,x2,y2`",
-        value="100,500,300,500"
-    )
-    
-    try:
-        x1, y1, x2, y2 = map(float, coords_input.strip().split(","))
-        pixel_dist = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-        known_len_nm = st.number_input("Distance between points (nm)", value=500.0, step=10.0)
-        scale_nm_per_pixel = known_len_nm / pixel_dist
-        st.session_state.scale_nm_per_pixel = scale_nm_per_pixel
-        st.success(f"📏 Calculated scale: `{scale_nm_per_pixel:.3f} nm/pixel`")
-    except Exception as e:
-        st.warning("Please enter valid coordinates in the format: `x1,y1,x2,y2`")
-
-    
+        
     if uploaded:
         img = Image.open(uploaded).convert('RGB')
         img_np = np.array(img)
+
+        st.subheader("📐 Scale Calibration (Pixel to nm)")
+
+        # Show SEM image
+        st.image(img_np, caption="SEM image (for scale bar)", use_column_width=True)
+        
+        st.markdown("🧭 Measure two points on the scale bar (e.g., using an image viewer) and enter coordinates:")
+        
+        coords_input = st.text_input(
+            "Enter points as: `x1,y1,x2,y2`",
+            value="100,500,300,500"
+        )
+        
+        try:
+            x1, y1, x2, y2 = map(float, coords_input.strip().split(","))
+            pixel_dist = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+            known_len_nm = st.number_input("Distance between points (nm)", value=500.0, step=10.0)
+            scale_nm_per_pixel = known_len_nm / pixel_dist
+            st.session_state.scale_nm_per_pixel = scale_nm_per_pixel
+            st.success(f"📏 Calculated scale: `{scale_nm_per_pixel:.3f} nm/pixel`")
+        except Exception as e:
+            st.warning("Please enter valid coordinates in the format: `x1,y1,x2,y2`")
 
         # === Scale Calibration ===
         st.sidebar.markdown("### 📐 Pixel-to-nm Scale")
