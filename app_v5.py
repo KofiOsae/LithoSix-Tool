@@ -182,41 +182,28 @@ if page == "SEM Analyzer":
     st.header("🖼 SEM Analyzer — Advanced Grating + Shape Metrics")
 
     uploaded = st.file_uploader("Upload SEM Image", type=['png', 'tif', 'tiff', 'jpg','jpeg'])
-    st.subheader("📐 Click-to-Calibrate Scale Bar")
+    st.subheader("📐 Scale Calibration (Pixel to nm)")
 
-    if 'scale_clicks' not in st.session_state:
-        st.session_state.scale_clicks = []
+    # Show SEM image
+    st.image(img_np, caption="SEM image (for scale bar)", use_column_width=True)
+    
+    st.markdown("🧭 Measure two points on the scale bar (e.g., using an image viewer) and enter coordinates:")
+    
+    coords_input = st.text_input(
+        "Enter points as: `x1,y1,x2,y2`",
+        value="100,500,300,500"
+    )
+    
+    try:
+        x1, y1, x2, y2 = map(float, coords_input.strip().split(","))
+        pixel_dist = ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
+        known_len_nm = st.number_input("Distance between points (nm)", value=500.0, step=10.0)
+        scale_nm_per_pixel = known_len_nm / pixel_dist
+        st.session_state.scale_nm_per_pixel = scale_nm_per_pixel
+        st.success(f"📏 Calculated scale: `{scale_nm_per_pixel:.3f} nm/pixel`")
+    except Exception as e:
+        st.warning("Please enter valid coordinates in the format: `x1,y1,x2,y2`")
 
-
-    # Convert NumPy image to PIL if needed
-    if isinstance(img_np, np.ndarray):
-        img_pil = Image.fromarray(img_np)
-    else:
-        img_pil = img_np
-    
-    fig = px.imshow(img_np, binary_format="jpg")
-    fig.update_layout(clickmode='event+select')
-    
-    click_info = st.plotly_chart(fig, use_container_width=True)
-    
-    # Capture clicks via Plotly events
-    click_data = st.session_state.get("click_data", [])
-    
-    if 'plotly_clicks' not in st.session_state:
-        st.session_state.plotly_clicks = []
-    
-    click = st.experimental_get_query_params().get("click")
-    if click:
-        st.session_state.plotly_clicks.append(eval(click))
-    
-    if len(st.session_state.plotly_clicks) >= 2:
-        x1, y1 = st.session_state.plotly_clicks[0]
-        x2, y2 = st.session_state.plotly_clicks[1]
-        pixel_dist = ((x2 - x1)**2 + (y2 - y1)**2) ** 0.5
-        known_len = st.number_input("Real-world distance between clicks (nm)", value=500.0)
-        scale_nm_per_px = known_len / pixel_dist
-        st.session_state.scale_nm_per_pixel = scale_nm_per_px
-        st.success(f"📏 Scale = {scale_nm_per_px:.3f} nm/pixel")
     
     if uploaded:
         img = Image.open(uploaded).convert('RGB')
