@@ -144,41 +144,46 @@ elif page == "📋 DOE Manager":
             st.json(suggestion)
 
 # ---------- SEM ANALYZER ----------
-elif page == "🖼 SEM Analyzer":
-    st.title("🖼 SEM Feature Analyzer")
-    sem_file = st.file_uploader("Upload SEM Image", type=["png", "jpg", "jpeg", "tif", "tiff"])
-    if sem_file:
-        image = Image.open(sem_file).convert("RGB")
-        img_np = np.array(image)
-        gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-        st.image(img_np, caption="Uploaded SEM", use_container_width=True)
+# New: SEM Analyzer Enhanced UI
+elif page == "SEM Analyzer":
+    st.header("SEM Analyzer")
+    uploaded_file = st.file_uploader("Upload SEM Image", type=['png', 'jpg', 'jpeg'])
+    shape_type = st.selectbox("Feature Type", ["Grating", "Dot", "Ellipse"])
+    scale_mode = st.radio("Set Scale", ["Manual (nm/pixel)", "Use Click-to-Scale (Coming Soon)"])
 
-        feature_type = st.selectbox("Select Feature Type", ["Gratings", "Dots", "Ellipses"])
-        st.number_input("Pixel scale (nm/pixel)", min_value=0.1, step=0.1, key="pixel_scale")
+    if scale_mode == "Manual (nm/pixel)":
+        st.session_state.scale_nm_per_pixel = st.number_input("Scale (nm/pixel)", min_value=0.1, max_value=100.0, value=10.0)
 
-        if feature_type == "Gratings":
-            mask = extract_grating_edges(gray)
-            props = measure.regionprops(mask)
-            cds, lers = [], []
-            for p in props:
-                if p.area > 100:
-                    minr, minc, maxr, maxc = p.bbox
-                    width_px = maxc - minc
-                    cd = width_px * st.session_state.pixel_scale
-                    cds.append(cd)
-                    lers.append(compute_ler(p.coords, pixel_scale=st.session_state.pixel_scale))
+    if uploaded_file:
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        st.image(img, caption="Original SEM Image", use_column_width=True)
 
-            st.markdown("### 📏 Feature Statistics")
-            st.write({
-                "CD mean (nm)": np.mean(cds),
-                "CD std (nm)": np.std(cds),
-                "LER mean (nm)": np.mean(lers),
-                "Count": len(cds)
-            })
-            df = pd.DataFrame({"CD (nm)": cds, "LER (nm)": lers})
-            st.dataframe(df)
-            st.download_button("📥 Download Feature Table", df.to_csv(index=False), "sem_features.csv")
+        # Convert and preprocess
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray, (5,5), 0)
+        thresh_val = threshold_otsu(blur)
+        binary = (blur > thresh_val).astype(np.uint8) * 255
+        edges = cv2.Canny(binary, 50, 150)
 
+        st.image(edges, caption="Edges", use_column_width=True)
+
+        # Analysis based on shape
+        if shape_type == "Grating":
+            cd, ler, lwr = analyze_grating(edges, st.session_state.scale_nm_per_pixel)
+            st.markdown(f"""
+            **CD (mean width):** {cd:.2f} nm  
+            **LER:** {ler:.2f} nm  
+            **LWR:** {lwr:.2f} nm  
+            """)
+        else:
+            results_df = analyze_shapes(binary, shape_type)
+            st.dataframe(results_df)
+            csv = results_df.to_csv(index=False).encode('utf-8')
+            st.download_button("Download Feature Stats CSV", csv, "feature_stats.csv", "text/csv")
+
+        score = dummy_cnn_quality_score(edges)
+        st.markdown(f"**AI Quality Score:** `{score:.3f}`")
 
 # ---------- SIX SIGMA ----------
 elif page == "📊 Six Sigma Stats":
