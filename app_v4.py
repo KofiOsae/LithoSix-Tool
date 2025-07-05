@@ -70,6 +70,33 @@ def get_scale_from_clicks(img, clicks, scale_nm):
         return scale_nm / px_dist
     return None
 
+def analyze_grating(edges, scale_nm_per_pixel):
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    widths = []
+    for cnt in contours:
+        x, y, w, h = cv2.boundingRect(cnt)
+        widths.append(w)
+    if len(widths) > 1:
+        widths_nm = np.array(widths) * scale_nm_per_pixel
+        cd = np.mean(widths_nm)
+        lwr = np.std(widths_nm)
+        ler = lwr  # For now, treat similarly
+        return cd, ler, lwr
+    return np.nan, np.nan, np.nan
+
+# New function: Dot/Ellipse shape metrics
+def analyze_shapes(binary_img, shape_type):
+    labeled = label(binary_img)
+    props = regionprops(labeled)
+    results = []
+    for region in props:
+        if region.area < 50: continue
+        circ = 4 * math.pi * region.area / (region.perimeter ** 2) if region.perimeter > 0 else 0
+        ecc = region.eccentricity
+        results.append({'Area': region.area, 'Circularity': circ, 'Eccentricity': ecc})
+    df = pd.DataFrame(results)
+    return df
+
 # ---------- PAGE SELECTION ----------
 page = st.sidebar.selectbox("📁 Select Module", [
     "🧭 Tutorial", "📋 DOE Manager", "🖼 SEM Analyzer",
@@ -151,35 +178,6 @@ elif page == "🖼 SEM Analyzer":
             df = pd.DataFrame({"CD (nm)": cds, "LER (nm)": lers})
             st.dataframe(df)
             st.download_button("📥 Download Feature Table", df.to_csv(index=False), "sem_features.csv")
-
-
-
-def analyze_grating(edges, scale_nm_per_pixel):
-    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    widths = []
-    for cnt in contours:
-        x, y, w, h = cv2.boundingRect(cnt)
-        widths.append(w)
-    if len(widths) > 1:
-        widths_nm = np.array(widths) * scale_nm_per_pixel
-        cd = np.mean(widths_nm)
-        lwr = np.std(widths_nm)
-        ler = lwr  # For now, treat similarly
-        return cd, ler, lwr
-    return np.nan, np.nan, np.nan
-
-# New function: Dot/Ellipse shape metrics
-def analyze_shapes(binary_img, shape_type):
-    labeled = label(binary_img)
-    props = regionprops(labeled)
-    results = []
-    for region in props:
-        if region.area < 50: continue
-        circ = 4 * math.pi * region.area / (region.perimeter ** 2) if region.perimeter > 0 else 0
-        ecc = region.eccentricity
-        results.append({'Area': region.area, 'Circularity': circ, 'Eccentricity': ecc})
-    df = pd.DataFrame(results)
-    return df
 
 
 # ---------- SIX SIGMA ----------
