@@ -179,7 +179,7 @@ page = st.sidebar.radio("Select Module", ["SEM Analyzer", "DOE Manager", "Six Si
 if page == "SEM Analyzer":
     st.header("🖼 SEM Analyzer — Advanced Grating + Shape Metrics")
 
-    uploaded = st.file_uploader("Upload SEM Image", type=['png','jpg','jpeg'])
+    uploaded = st.file_uploader("Upload SEM Image", type=['png', 'tif, 'tiff. 'jpg','jpeg'])
     if uploaded:
         img = Image.open(uploaded).convert('RGB')
         img_np = np.array(img)
