@@ -191,16 +191,20 @@ if page == "SEM Analyzer":
             scale = st.sidebar.number_input("nm per pixel", value=2.5, step=0.1)
         else:
             st.markdown("Click **exactly 2 points** on the scale bar to calibrate")
+            canvas_img = Image.fromarray(img) if isinstance(img, np.ndarray) else img
+            if canvas_img.mode != "RGB":
+                canvas_img = canvas_img.convert("RGB")
+            
             scale_canvas = st_canvas(
-                background_image=img,
-                update_streamlit=True,
+                background_image=canvas_img,
                 drawing_mode="point",
                 stroke_width=2,
-                height=img_np.shape[0],
-                width=img_np.shape[1],
+                update_streamlit=True,
+                height=canvas_img.height,
+                width=canvas_img.width,
                 key="scale_canvas"
             )
-            scale = None
+                    scale = None
             if scale_canvas.json_data and len(scale_canvas.json_data["objects"]) == 2:
                 x1, y1 = scale_canvas.json_data["objects"][0]["left"], scale_canvas.json_data["objects"][0]["top"]
                 x2, y2 = scale_canvas.json_data["objects"][1]["left"], scale_canvas.json_data["objects"][1]["top"]
