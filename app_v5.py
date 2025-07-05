@@ -145,7 +145,7 @@ if page == "SEM Analyzer":
     contrast = st.sidebar.slider("Contrast", 1.0, 3.0, 1.2)
     mode = st.sidebar.selectbox("Feature Type", ["Grating", "Dot", "Ellipse"])
 
-    uploaded = st.file_uploader("Upload SEM image", type=['png','jpg','jpeg'])
+    uploaded = st.file_uploader("Upload SEM image", type=['png','jpg','jpeg','tif','tiff'])
     if uploaded:
         img = Image.open(uploaded).convert('RGB')
         img = np.array(img)
