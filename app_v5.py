@@ -223,3 +223,85 @@ elif page == "DOE Manager":
             "doe_history.csv",
             "text/csv"
         )
+# === SIX SIGMA STATS ===
+elif page == "Six Sigma Stats":
+    st.header("📊 Six Sigma Statistics")
+
+    st.subheader("🎯 Cp and Cpk Calculator")
+    raw_data = st.text_area("Enter measurement data (comma-separated)", "100, 101, 99, 98, 102, 97")
+    usl = st.number_input("USL (Upper Spec Limit)", value=105.0)
+    lsl = st.number_input("LSL (Lower Spec Limit)", value=95.0)
+
+    if st.button("Calculate Cp/Cpk"):
+        try:
+            vals = np.array([float(x.strip()) for x in raw_data.split(',') if x.strip() != ''])
+            cp, cpk = calculate_cp_cpk(vals, usl, lsl)
+            st.success(f"Cp = {cp:.3f} | Cpk = {cpk:.3f}")
+        except Exception as e:
+            st.error(f"Calculation error: {e}")
+
+    st.markdown("---")
+
+    st.subheader("📚 ANOVA (Multi-group Comparison)")
+    group_data = st.text_area("Enter data groups (one per line)", "100, 101, 99\n98, 97, 96\n102, 103, 101")
+
+    if st.button("Run ANOVA Test"):
+        try:
+            groups = []
+            for line in group_data.strip().split("\n"):
+                group = [float(x) for x in line.strip().split(',') if x.strip()]
+                if group:
+                    groups.append(group)
+            f_val, p_val = anova_test(groups)
+            st.info(f"F = {f_val:.3f}, P = {p_val:.4f}")
+        except Exception as e:
+            st.error(f"ANOVA error: {e}")
+
+    st.markdown("---")
+
+    st.subheader("📈 Regression: CD ~ DOE Parameters")
+    synth = generate_synthetic_doe()
+    st.dataframe(synth.head())
+
+    X = synth[['Dose', 'PEC', 'Development']]
+    y = synth['CD']
+    model = RandomForestRegressor()
+    model.fit(X, y)
+    preds = model.predict(X)
+
+    r2 = model.score(X, y)
+    st.success(f"Model R² = {r2:.3f}")
+
+    fig, ax = plt.subplots()
+    ax.scatter(y, preds, alpha=0.7)
+    ax.plot([y.min(), y.max()], [y.min(), y.max()], 'r--')
+    ax.set_xlabel("Actual CD")
+    ax.set_ylabel("Predicted CD")
+    ax.set_title("CD Prediction")
+    st.pyplot(fig)
+
+# === TREND DASHBOARD ===
+elif page == "Trend Dashboard":
+    st.header("📈 Trend Dashboard")
+
+    input_data = st.text_area("Enter time-series data (comma-separated)", "100, 101, 99, 98, 102, 97, 103, 105, 110")
+    if st.button("Run Trend Analysis"):
+        try:
+            data = np.array([float(x.strip()) for x in input_data.split(',') if x.strip()])
+            st.subheader("📉 SPC Chart")
+            plot_spc_chart(data)
+
+            st.subheader("🔍 Anomaly Detection")
+            iso_idx = detect_anomalies(data)
+            if len(iso_idx):
+                st.warning(f"Isolation Forest flagged anomalies at indices: {list(iso_idx)}")
+            else:
+                st.success("No anomalies by Isolation Forest.")
+
+            cusum_idx = cusum(data - np.mean(data))
+            if cusum_idx >= 0:
+                st.warning(f"CUSUM flagged a shift at index {cusum_idx}")
+            else:
+                st.success("CUSUM did not flag any shift.")
+        except Exception as e:
+            st.error(f"Trend processing error: {e}")
