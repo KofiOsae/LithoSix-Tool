@@ -419,18 +419,24 @@ elif page == "Six Sigma Stats":
         if pval < 0.05:
             st.success("Significant differences between groups (p < 0.05)")
 
-        st.subheader("🤖 Regression: Predict CD")
-        x_cols = st.multiselect("Select Features", df.columns)
-        if col in x_cols:
-            x_cols.remove(col)
+        st.subheader("🤖 Regression: Predict CD or Other Metric")
+        possible_features = [c for c in df.columns if df[c].dtype in [np.float64, np.int64]]
+        col = st.selectbox("🎯 Select Target Column", possible_features)
+        
+        x_cols = st.multiselect("📊 Select Features", [c for c in possible_features if c != col])
+        
         if x_cols:
             from sklearn.ensemble import RandomForestRegressor
             model = RandomForestRegressor()
             X = df[x_cols]
             y = df[col]
             model.fit(X, y)
+            y_pred = model.predict(X)
             r2 = model.score(X, y)
             st.metric("Regression R²", f"{r2:.3f}")
+        
+            st.line_chart(pd.DataFrame({"Actual": y, "Predicted": y_pred}))
+
 
 
 # === TREND DASHBOARD ===
