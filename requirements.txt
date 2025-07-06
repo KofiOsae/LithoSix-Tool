@@ -11,3 +11,4 @@ openpyxl
 matplotlib
 scikit-image
 statsmodels
+streamlit_image_crop
