@@ -15,6 +15,7 @@ from skimage.measure import regionprops, label
 import plotly.express as px
 import plotly.graph_objects as go
 import io
+from streamlit_image_crop import image_crop  # Make sure it's installed
 
 
 # --- Helper Functions Shared ---
@@ -243,6 +244,35 @@ def run_sem_analyzer():
 
     uploaded = st.file_uploader("Upload SEM Image", type=['png', 'jpg', 'jpeg', 'tif', 'tiff'])
 
+    st.subheader("✂️ Cropping Mode")
+
+    crop_mode = st.radio("Choose Cropping Method", ["🔲 Drag to Select (Interactive)", "📏 Manual Entry (X, Y, W, H)"])
+
+    if crop_mode == "🔲 Drag to Select (Interactive)":
+        pil_image = Image.fromarray(img_rgb)
+        cropped_pil = image_crop(pil_image)
+        if cropped_pil:
+            image = np.array(cropped_pil)
+            img_rgb = image
+            st.image(image, caption="🗂 Cropped SEM Image", use_container_width=True)
+
+    elif crop_mode == "📏 Manual Entry (X, Y, W, H)":
+        h_max, w_max = img_rgb.shape[:2]
+        x = st.number_input("X Start", 0, w_max - 1, 0)
+        y = st.number_input("Y Start", 0, h_max - 1, 0)
+        w = st.number_input("Width", 1, w_max - x, w_max - x)
+        h = st.number_input("Height", 1, h_max - y, h_max - y)
+    
+        if st.button("✂️ Crop Now"):
+            image = img_rgb[int(y):int(y+h), int(x):int(x+w)]
+            img_rgb = image
+            st.image(image, caption="🗂 Cropped SEM Image", use_column_width=True)
+
+    buf = BytesIO()
+    Image.fromarray(img_rgb).save(buf, format="PNG")
+    st.download_button("⬇️ Download Cropped SEM", buf.getvalue(), file_name="cropped_sem.png")
+    
+    
     if uploaded:
         file_bytes = np.asarray(bytearray(uploaded.read()), dtype=np.uint8)
         image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
