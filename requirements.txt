@@ -10,3 +10,4 @@ Pillow
 openpyxl
 matplotlib
 scikit-image
+statsmodels
