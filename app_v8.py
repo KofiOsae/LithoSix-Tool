@@ -28,12 +28,6 @@ def to_excel(df):
 # -------------------------------
 # SEM Analysis Functions
 # -------------------------------
-import cv2
-import math
-import numpy as np
-import pandas as pd
-from skimage.measure import regionprops, label
-
 def summarize_metrics(df, fields):
     summary = {}
     for name, key in fields.items():
@@ -44,6 +38,18 @@ def summarize_metrics(df, fields):
         else:
             summary[name] = "N/A"
     return pd.DataFrame.from_dict(summary, orient="index", columns=["μ ± σ"])
+
+def preprocess_image(image, blur_ksize=5, threshold_value=100, contrast_factor=1.2):
+    """
+    Convert image to grayscale, blur, threshold, and apply contrast adjustment.
+    Returns a processed binary image suitable for feature extraction.
+    """
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (blur_ksize, blur_ksize), 0)
+    _, binary = cv2.threshold(blurred, threshold_value, 255, cv2.THRESH_BINARY)
+    adjusted = cv2.convertScaleAbs(binary, alpha=contrast_factor, beta=0)
+    return adjusted
+
 
 def extract_grating_geometry(gray, contours, scale, gray_to_nm=2.0):
     results = []
