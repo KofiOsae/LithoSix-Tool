@@ -276,7 +276,6 @@ st.title("🧪 LithoSix: Complete Lithography Assistant")
 page = st.sidebar.radio("Select Module", ["SEM Analyzer", "DOE Manager", "Six Sigma Stats", "Trend Dashboard"])
 
 # === SEM ANALYZER ADVANCE===
-from sem_analyzer import run_sem_analyzer
 
 if page == "SEM Analyzer":
     run_sem_analyzer()
