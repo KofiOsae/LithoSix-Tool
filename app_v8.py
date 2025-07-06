@@ -420,22 +420,63 @@ elif page == "Six Sigma Stats":
             st.success("Significant differences between groups (p < 0.05)")
 
         st.subheader("🤖 Regression: Predict CD or Other Metric")
+        # Filter numeric features
         possible_features = [c for c in df.columns if df[c].dtype in [np.float64, np.int64]]
         col = st.selectbox("🎯 Select Target Column", possible_features)
-        
         x_cols = st.multiselect("📊 Select Features", [c for c in possible_features if c != col])
-        
+
+        # Optional target CD line
+        st.subheader("🎯 Enter Target CD Value (Optional)")
+        target_value = st.number_input("Target Value for CD or Metric", value=float(df[col].mean()), format="%.3f")
+
         if x_cols:
-            from sklearn.ensemble import RandomForestRegressor
-            model = RandomForestRegressor()
             X = df[x_cols]
             y = df[col]
+            model = RandomForestRegressor()
             model.fit(X, y)
             y_pred = model.predict(X)
             r2 = model.score(X, y)
             st.metric("Regression R²", f"{r2:.3f}")
-        
-            st.line_chart(pd.DataFrame({"Actual": y, "Predicted": y_pred}))
+
+            st.subheader("📈 Predicted vs Measured Scatter Plot")
+            scatter_df = pd.DataFrame({
+                "Measured": y,
+                "Predicted": y_pred
+            })
+
+            fig = px.scatter(
+                scatter_df, x="Measured", y="Predicted",
+                trendline="ols",
+                title="Predicted vs Measured CD",
+                labels={"Measured": "Measured CD (nm)", "Predicted": "Predicted CD (nm)"}
+            )
+
+            # Add y = x reference line
+            fig.add_trace(go.Scatter(
+                x=[y.min(), y.max()],
+                y=[y.min(), y.max()],
+                mode="lines",
+                line=dict(color="gray", dash="dash"),
+                name="y = x"
+            ))
+
+            # Add horizontal target line
+            if target_value:
+                fig.add_trace(go.Scatter(
+                    x=[y.min(), y.max()],
+                    y=[target_value]*2,
+                    mode="lines",
+                    line=dict(color="red", dash="dot"),
+                    name=f"Target CD = {target_value:.1f} nm"
+                ))
+
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Residual analysis
+            st.subheader("📉 Residuals (Measured - Predicted)")
+            residuals = y - y_pred
+            fig_res = px.histogram(residuals, nbins=30, title="Residual Distribution")
+            st.plotly_chart(fig_res, use_container_width=True)
 
 
 
