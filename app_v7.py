@@ -188,14 +188,6 @@ def cusum(data, k=0.5, h=5):
     return -1
 
 
-from sem_helpers import (
-    preprocess_image,
-    extract_grating_geometry,
-    extract_dot_features,
-    extract_dot_ellipse_features,
-    overlay_contours
-)
-
 def run_sem_analyzer():
     st.header("🖼 SEM Analyzer — Advanced Feature Analysis")
 
